@@ -60,7 +60,7 @@ mkdir -p ~/.claude/skills/frontend-slides/scripts
 # Copy the user-facing skill files
 cp SKILL.md STYLE_PRESETS.md viewport-base.css html-template.md animation-patterns.md ~/.claude/skills/frontend-slides/
 cp -R bold-template-pack ~/.claude/skills/frontend-slides/
-cp scripts/extract-pptx.py scripts/deploy.sh scripts/export-pdf.sh ~/.claude/skills/frontend-slides/scripts/
+cp scripts/extract-pptx.py scripts/audit-deck.py scripts/deploy.sh scripts/export-pdf.sh ~/.claude/skills/frontend-slides/scripts/
 ```
 
 Or clone directly:
@@ -112,7 +112,8 @@ The skill will:
 2. Generate 3 visual style previews for you to compare, inferring the vibe from your brief unless you already named one
 3. Let you pick the visual direction
 4. Create the full presentation in your chosen style
-5. Open it in your browser
+5. Run an automated layout audit (`scripts/audit-deck.py`) to catch overflow, overlapping elements, floating-chrome collisions, and sparse slides before delivery
+6. Open it in your browser
 
 ### Convert a PowerPoint
 
@@ -528,6 +529,7 @@ This skill uses **progressive disclosure** — the main `SKILL.md` is a workflow
 | `viewport-base.css`       | Mandatory fixed-stage CSS      | Phase 3 (generation)      |
 | `html-template.md`        | HTML structure and JS features | Phase 3 (generation)      |
 | `animation-patterns.md`   | CSS/JS animation reference     | Phase 3 (generation)      |
+| `scripts/audit-deck.py`   | Automated layout audit (overflow, overlap, chrome collision, fill) | Phase 3.5 (mandatory audit) |
 | `scripts/extract-pptx.py` | PPT content extraction         | Phase 4 (conversion)      |
 | `scripts/deploy.sh`       | Deploy to Vercel               | Phase 6 (sharing)         |
 | `scripts/export-pdf.sh`   | Export slides to PDF           | Phase 6 (sharing)         |

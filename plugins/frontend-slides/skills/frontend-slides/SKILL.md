@@ -107,6 +107,16 @@ How dense should the deck feel? Options:
 
 **Do not ask about inline editing during Phase 1.** Users should not have to choose editing behavior before seeing a draft. Inline editing is a post-draft affordance: include it by default unless the user explicitly asks for a locked/export-only file.
 
+**Slide count calibration:** the user's length answer is a ceiling, not a target — match the deck size to actual content volume:
+
+| Content volume | Recommended deck size |
+| -------------- | --------------------- |
+| Thin source (tagline + a handful of one-line features + a few stats) | 5-10 slides |
+| Product page with detailed sections, demos, FAQ | 10-15 slides |
+| Rich documentation, multi-chapter talk, dense report | 15-25 slides |
+
+Generating N nearly-empty slides to hit the requested count is a defect: a dense 8-slide deck beats a sparse 20-slide deck every time. The Phase 3.5 audit enforces this — a deck-wide average fill below 50% means the content does not justify the slide count and slides must be merged.
+
 Remember the user's density choice. It affects slide count, typography scale, amount of text per slide, layout density, and whether to favor cinematic presenter slides or self-contained reading slides.
 
 If user has content, ask them to share it.
@@ -245,6 +255,39 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 - Add detailed comments explaining each section
 - Every section needs a clear `/* === SECTION NAME === */` comment block
 
+**Layout quality rules (mandatory):**
+
+These encode real defects observed in generated decks. The Phase 3.5 audit catches them mechanically, but avoid creating them in the first place:
+
+- **No floating navigation controls over the slide stage.** Fixed-position Prev/Next/counter bars collide with the slide chrome at the bottom edge. Slide chrome already carries pagination; keyboard, swipe, and click-zone navigation are sufficient. If controls are kept anyway, they must sit entirely in the letterbox area outside the scaled stage.
+- **`justify-content: space-between` requires 3+ elements.** With only 2 elements it punches a hole in the middle of the slide. For 2-element slides, use a compact centered block with a fixed gap.
+- **Never stretch small content to fill height.** A stat card using `space-between` inside a tall stretched container produces huge gaps between its numeral, label, and note. Size cards to their content and center the group.
+- **Watch CSS rule order.** A more specific layout rule placed after a shared rule silently overrides it (e.g., a per-slide-type `justify-content: center` overriding the shared `space-between`). Keep exactly one canonical layout rule per slide type.
+- **Stage centering:** with `transform-origin: 0 0`, never combine `translate(-50%, -50%)` with `scale()` — the percentages resolve against the element's unscaled size and the stage lands off-center. Position the scaled stage with computed left/top offsets, exactly as in [html-template.md](html-template.md).
+- **Every chrome slide needs a dominant element.** A chrome slide without a large headline reads as empty regardless of the fill ratio. If a slide only holds small elements (e.g., stat cards), add the section headline above them.
+
+---
+
+## Phase 3.5: Automated Layout Audit (MANDATORY)
+
+Never deliver a presentation without running the audit:
+
+```bash
+python scripts/audit-deck.py <path-to-presentation.html>
+```
+
+The script loads the deck in headless Chromium and checks every slide for:
+
+- Content overflow (text clipped by slide bounds)
+- Text-on-text overlap between sibling elements
+- Fixed-position chrome colliding with the slide stage
+- 16:9 stage ratio and viewport centering
+- Vertical fill ratio per slide and deck-wide (empty-space detection)
+
+**Delivery gate:** the audit must exit 0 with zero critical issues. Fix the deck and re-run until it passes. Do not eyeball screenshots as a substitute — run the script.
+
+**Warnings:** every warning (e.g., a slide below 40% fill) must be either fixed — bigger type, more content per slide, or merge slides — or explicitly justified as a breathing slide (cover, statement, quote, chapter divider, end). A deck-wide average fill below 50% means the content does not justify the slide count: go back to Phase 3 and merge slides.
+
 ---
 
 ## Phase 4: PPT Conversion
@@ -376,5 +419,6 @@ This captures each slide as a screenshot and combines them into a PDF. Perfect f
 | [html-template.md](html-template.md)               | HTML structure, JS features, code quality standards                  | Phase 3 (generation)      |
 | [animation-patterns.md](animation-patterns.md)     | CSS/JS animation snippets and effect-to-feeling guide                | Phase 3 (generation)      |
 | [scripts/extract-pptx.py](scripts/extract-pptx.py) | Python script for PPT content extraction                             | Phase 4 (conversion)      |
+| [scripts/audit-deck.py](scripts/audit-deck.py)     | Automated layout audit (overflow, overlap, chrome collision, fill)   | Phase 3.5 (mandatory)    |
 | [scripts/deploy.sh](scripts/deploy.sh)             | Deploy slides to Vercel for instant sharing                          | Phase 6 (sharing)         |
 | [scripts/export-pdf.sh](scripts/export-pdf.sh)     | Export slides to PDF                                                 | Phase 6 (sharing)         |
