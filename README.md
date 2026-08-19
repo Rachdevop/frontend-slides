@@ -529,7 +529,7 @@ This skill uses **progressive disclosure** — the main `SKILL.md` is a workflow
 | `viewport-base.css`       | Mandatory fixed-stage CSS      | Phase 3 (generation)      |
 | `html-template.md`        | HTML structure and JS features | Phase 3 (generation)      |
 | `animation-patterns.md`   | CSS/JS animation reference     | Phase 3 (generation)      |
-| `scripts/audit-deck.py`   | Automated layout audit (overflow, overlap, chrome collision, fill) | Phase 3.5 (mandatory audit) |
+| `scripts/audit-deck.py`   | Automated layout audit (overflow, overlap, chrome collision, fill, vertical rhythm) | Phase 3.5 (mandatory audit) |
 | `scripts/extract-pptx.py` | PPT content extraction         | Phase 4 (conversion)      |
 | `scripts/deploy.sh`       | Deploy to Vercel               | Phase 6 (sharing)         |
 | `scripts/export-pdf.sh`   | Export slides to PDF           | Phase 6 (sharing)         |

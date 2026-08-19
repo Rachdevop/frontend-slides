@@ -8,6 +8,7 @@ Loads a deck in headless Chromium and checks every slide for:
   3. Floating chrome         (fixed navigation overlapping the slide stage)
   4. Stage geometry          (16:9 ratio + viewport centering)
   5. Vertical fill ratio     (empty-space / sparse-slide detection)
+  6. Vertical rhythm         (deck-wide gap consistency between major blocks)
 
 Usage:
     python scripts/audit-deck.py <presentation.html> [--min-fill 50] [--warn-fill 40]
@@ -36,6 +37,14 @@ AUDIT_JS = r"""
     const rect = (el) => el.getBoundingClientRect();
     const hasDirectText = (el) => Array.from(el.childNodes)
         .some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
+
+    // Neutralize entrance-animation transforms so measured positions are final
+    document.querySelectorAll('.reveal, [class*="fade"], [class*="slide-in"]').forEach(el => {
+        el.style.transform = 'none';
+        el.style.transition = 'none';
+    });
+
+    const scale = rect(stage).width / 1920;
 
     // ---------- Stage geometry: 16:9 ratio + centering ----------
     const sr = rect(stage);
@@ -80,8 +89,25 @@ AUDIT_JS = r"""
         const rep = {
             idx: i + 1,
             cls: (slide.getAttribute('class') || '').replace(/\s+/g, ' ').trim(),
-            overflow: [], overlaps: [], fill: null
+            overflow: [], overlaps: [], fill: null, gaps: []
         };
+
+        // Vertical rhythm: gaps between major blocks (title -> content rhythm).
+        // Cover slides are excluded (full-bleed image layout has its own rules).
+        if (!slide.classList.contains('cover') && scale > 0) {
+            const container = slide.querySelector('.content') || slide;
+            const kids = Array.from(container.children).filter(el => {
+                const cls = el.getAttribute('class') || '';
+                if (/chrome-(top|bottom)/.test(cls)) return false;
+                const r = rect(el);
+                return r.width > 4 && r.height > 4;
+            }).sort((a, b) => rect(a).top - rect(b).top);
+            for (let k = 1; k < kids.length; k++) {
+                const gapPx = rect(kids[k]).top - rect(kids[k - 1]).bottom;
+                const designGap = Math.round(gapPx / scale);
+                if (designGap >= 0) rep.gaps.push(designGap);
+            }
+        }
 
         const isChrome = (el) => {
             const cls = el.getAttribute('class') || '';
@@ -175,6 +201,10 @@ def run_audit(html_path: Path, min_fill: int, warn_fill: int) -> int:
     critical = []
     warnings = []
     fills = []
+    all_gaps = []
+    for s in result["slides"]:
+        if s.get("gaps"):
+            all_gaps.extend(s["gaps"])
 
     print("Frontend Slides — Deck Layout Audit")
     print("=" * 60)
@@ -188,6 +218,7 @@ def run_audit(html_path: Path, min_fill: int, warn_fill: int) -> int:
         fills.append(s["fill"] if s["fill"] is not None else 0)
         label = s["cls"].split(" ")[0] if s["cls"] else "slide"
         fill_str = f"{s['fill']}%" if s["fill"] is not None else "n/a"
+        gaps_str = ("/".join(str(g) for g in s["gaps"]) + "px") if s["gaps"] else ""
         status = "OK"
         notes = []
 
@@ -205,11 +236,11 @@ def run_audit(html_path: Path, min_fill: int, warn_fill: int) -> int:
         elif any(n.startswith("warning") for n in notes):
             status = "WARN"
         if status != "OK":
-            print(f"[{s['idx']:>2}] {label:<12} fill {fill_str:>5}  {status}")
+            print(f"[{s['idx']:>2}] {label:<12} fill {fill_str:>5}  {gaps_str:<12} {status}")
             for n in notes:
                 print(f"      - {n}")
         else:
-            print(f"[{s['idx']:>2}] {label:<12} fill {fill_str:>5}  OK")
+            print(f"[{s['idx']:>2}] {label:<12} fill {fill_str:>5}  {gaps_str:<12} OK")
 
         for n in notes:
             if n.startswith("CRITICAL"):
@@ -239,6 +270,21 @@ def run_audit(html_path: Path, min_fill: int, warn_fill: int) -> int:
                f"content does not justify this slide count, merge slides")
         print(msg)
         critical.append(msg)
+
+    # Vertical rhythm: one deck-wide gap between major blocks
+    if all_gaps:
+        gmin, gmax = min(all_gaps), max(all_gaps)
+        print(f"Vertical rhythm: gaps {gmin}-{gmax}px between major blocks across the deck")
+        if gmax - gmin > 40:
+            msg = (f"warning: inconsistent vertical gaps ({gmin}px on some slides, {gmax}px on others) — "
+                   f"pick ONE deck-wide title-to-content gap (e.g. 72px at 1920x1080) and use it everywhere")
+            print(msg)
+            warnings.append(msg)
+        if gmax > 160:
+            msg = (f"warning: stretched layout — a {gmax}px gap between major blocks reads as a mid-slide hole; "
+                   f"group title + content as one compact centered block with a fixed gap")
+            print(msg)
+            warnings.append(msg)
 
     print(f"\nSummary: {len(critical)} critical, {len(warnings)} warning(s)")
     if critical:

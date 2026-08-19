@@ -260,11 +260,19 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 These encode real defects observed in generated decks. The Phase 3.5 audit catches them mechanically, but avoid creating them in the first place:
 
 - **No floating navigation controls over the slide stage.** Fixed-position Prev/Next/counter bars collide with the slide chrome at the bottom edge. Slide chrome already carries pagination; keyboard, swipe, and click-zone navigation are sufficient. If controls are kept anyway, they must sit entirely in the letterbox area outside the scaled stage.
-- **`justify-content: space-between` requires 3+ elements.** With only 2 elements it punches a hole in the middle of the slide. For 2-element slides, use a compact centered block with a fixed gap.
-- **Never stretch small content to fill height.** A stat card using `space-between` inside a tall stretched container produces huge gaps between its numeral, label, and note. Size cards to their content and center the group.
-- **Watch CSS rule order.** A more specific layout rule placed after a shared rule silently overrides it (e.g., a per-slide-type `justify-content: center` overriding the shared `space-between`). Keep exactly one canonical layout rule per slide type.
+- **Watch CSS rule order.** A more specific layout rule placed after a shared rule silently overrides it (e.g., a per-slide-type `justify-content: center` overriding the shared rule). Keep exactly one canonical layout rule per slide type.
 - **Stage centering:** with `transform-origin: 0 0`, never combine `translate(-50%, -50%)` with `scale()` — the percentages resolve against the element's unscaled size and the stage lands off-center. Position the scaled stage with computed left/top offsets, exactly as in [html-template.md](html-template.md).
 - **Every chrome slide needs a dominant element.** A chrome slide without a large headline reads as empty regardless of the fill ratio. If a slide only holds small elements (e.g., stat cards), add the section headline above them.
+
+**Vertical rhythm rules (universal proportion system):**
+
+These apply to every slide type, regardless of content volume, text length, or typeface. The goal: every slide of the deck breathes with the same spacing logic, so the deck reads as one designed object.
+
+- **One gap value per deck.** Pick a single title-to-content gap (72px at the 1920×1080 stage is a proven default) and apply it to every slide — chrome and chromeless alike. Never let one slide use 24px while another uses 48px; inconsistent gaps are the #1 reason a deck feels "off" even when each slide alone looks acceptable.
+- **Compact centered block, never stretched.** Group title + content as ONE block, vertically centered, with the fixed gap between elements. The margins above and below the block must be roughly symmetric. NEVER distribute title to the top edge and content to the bottom edge (`justify-content: space-between` on the title/content container): that punches a mid-slide hole whose size varies with content, so every slide ends up with a differently-sized void.
+- **Fill by grouping or scaling, never by distributing.** If a slide feels empty: increase type sizes, merge content from adjacent slides, or add a section headline. Never stretch elements apart to occupy height — gaps are for separating related things, not for filling space.
+- **Same rhythm across slide types.** Cover, statement, feature grids, stat cards, quote, end slide: all use the same vertical gap logic. A deck where feature slides breathe one way and quote slides another reads as assembled, not designed.
+- **The audit enforces this mechanically:** `scripts/audit-deck.py` measures the title-to-content gap on every slide and flags decks whose gaps are inconsistent (see Phase 3.5).
 
 ---
 
@@ -283,6 +291,7 @@ The script loads the deck in headless Chromium and checks every slide for:
 - Fixed-position chrome colliding with the slide stage
 - 16:9 stage ratio and viewport centering
 - Vertical fill ratio per slide and deck-wide (empty-space detection)
+- Vertical rhythm: gap consistency between major blocks across the whole deck (one deck-wide gap value)
 
 **Delivery gate:** the audit must exit 0 with zero critical issues. Fix the deck and re-run until it passes. Do not eyeball screenshots as a substitute — run the script.
 
