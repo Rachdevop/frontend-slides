@@ -389,9 +389,19 @@ python scripts/export-deck.py <path-to-html> --compact       # 1280x720, smaller
 python scripts/export-deck.py <path-to-html> --out <dir>     # explicit output directory
 ```
 
-**Requirements** (Python): `pip install playwright pillow python-pptx`, then `python -m playwright install chromium`. If Playwright's Chromium fails to download, it may be a network/firewall issue.
+**Requirements** (Python): `pip install playwright pillow python-pptx pymupdf`, then `python -m playwright install chromium`. If Playwright's Chromium fails to download, it may be a network/firewall issue.
 
 A legacy bash/Node export (`scripts/export-pdf.sh`) is also shipped for PDF-only environments that prefer it, but the Python script is preferred.
+
+**Automatic integrity check:** `export-deck.py` verifies after capture that every slide is a distinct image. If two captures are identical (a real bug where a PDF end up showing the first slide on every page), the export refuses to assemble and fails.
+
+**Verify the result:** after exporting, confirm the PDF/PPTX is not broken:
+
+```bash
+python scripts/verify-export.py <file.pdf|file.pptx> [expected_count]
+```
+
+This reports the page/slide count and confirms the pages are genuinely distinct (PyMuPDF for PDF, python-pptx for PPTX). Always run it before delivery.
 
 **⚠ Export gotchas:**
 
@@ -417,4 +427,5 @@ A legacy bash/Node export (`scripts/export-pdf.sh`) is also shipped for PDF-only
 | [scripts/audit-deck.py](scripts/audit-deck.py)     | Automated layout audit (overflow, overlap, chrome collision, fill)   | Phase 3.5 (mandatory)    |
 | [scripts/deploy.sh](scripts/deploy.sh)             | Deploy slides to Vercel for instant sharing                          | Phase 6 (sharing)         |
 | [scripts/export-deck.py](scripts/export-deck.py)   | Export slides to PDF and PPTX (Python, cross-platform)               | Phase 6 (sharing)         |
+| [scripts/verify-export.py](scripts/verify-export.py) | Verify exported PDF/PPTX (page count + distinct pages)              | Phase 6 (sharing)         |
 | [scripts/export-pdf.sh](scripts/export-pdf.sh)     | Legacy bash/Node export slides to PDF                                | Phase 6 (sharing)         |

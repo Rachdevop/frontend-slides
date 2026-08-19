@@ -24,12 +24,17 @@ Requires: python, playwright (browser), Pillow, python-pptx.
 """
 
 import argparse
+import hashlib
 import http.server
 import socketserver
 import sys
 import threading
 import webbrowser
 from pathlib import Path
+
+
+def hash_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 try:
     from playwright.sync_api import sync_playwright
@@ -64,25 +69,29 @@ def _start_server(serve_dir: Path):
 
 
 def _open_slide_safely(page, index: int):
-    """Show slide `index` and settle animations, tolerant of any deck structure."""
+    """Show ONLY slide `index` and settle animations, hiding every other slide."""
     page.evaluate(
         """(idx) => {
             const slides = document.querySelectorAll('.slide');
             slides.forEach((s, k) => {
                 s.classList.toggle('active', k === idx);
                 s.classList.toggle('visible', k === idx);
-                s.style.transition = 'none';
-                s.style.display = '';
-                s.style.opacity = '1';
-                s.style.visibility = 'visible';
-                s.style.position = 'relative';
-                s.style.transform = 'none';
                 s.querySelectorAll('.reveal').forEach(el => {
                     el.style.transition = 'none';
                     el.style.transform = 'none';
                     el.style.opacity = '1';
                     el.style.visibility = 'visible';
                 });
+                if (k === idx) {
+                    // target slide: fully visible, keep its CSS layout (absolute inset:0)
+                    s.style.display = '';
+                    s.style.opacity = '1';
+                    s.style.visibility = 'visible';
+                    s.style.pointerEvents = 'auto';
+                } else {
+                    // hide every other slide so it does not overlap the target
+                    s.style.display = 'none';
+                }
             });
         }""",
         index,
@@ -126,6 +135,20 @@ def export(input_html: Path, out_dir: Path, do_pdf: bool, do_pptx: bool, width: 
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+    # Integrity check: every slide must be a distinct image. If two captures are
+    # identical, the export is showing the same slide everywhere (a real bug we
+    # shipped once). Refuse to assemble a broken PDF/PPTX.
+    if len(pngs) > 1:
+        hashes = {}
+        for p in pngs:
+            h = hash_bytes(p.read_bytes())
+            hashes.setdefault(h, []).append(p.name)
+        duplicates = {k: v for k, v in hashes.items() if len(v) > 1}
+        if duplicates:
+            for v in duplicates.values():
+                print(f"ERROR: identical captures: {', '.join(v)} — every slide must render differently.")
+            sys.exit("Integrity check failed: the export would show the same slide on every page.")
 
     results = []
     if do_pdf:
